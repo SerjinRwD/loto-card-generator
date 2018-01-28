@@ -16,6 +16,7 @@ namespace LotoCardGenerator.Models
         public const int EMPTY_CELLS_IN_ROW_COUNT = 4;
         public const int VALUE_CELLS_IN_ROW_COUNT = CELLS_COUNT - EMPTY_CELLS_IN_ROW_COUNT;
         public const int MIN_VALUE_CELLS_IN_COLUMN_COUNT = 1;
+        public const int MAX_VALUE_CELLS_IN_COLUMN_COUNT = ROWS_COUNT;
 
         public const int CELLS_COUNT = COLUMNS_COUNT * ROWS_COUNT;
         public const int EMPTY_CELLS_COUNT = ROWS_COUNT * EMPTY_CELLS_IN_ROW_COUNT;
@@ -107,6 +108,22 @@ namespace LotoCardGenerator.Models
             }
 
             return cnt++;
+        }
+
+        public bool HasNoValueCells()
+        {
+            for (int row = 0; row < ROWS_COUNT; row++)
+            {
+                for (int column = 0; column < COLUMNS_COUNT; column++)
+                {
+                    if(_cells[row, column] == NO_VALUE)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         public string RowToString(int row)

@@ -4,21 +4,84 @@ namespace LotoCardGenerator.Models
 {
     public class CardBatchBuilder
     {
-        public NumbersPool NumbersPool { get; set; }
-        public RowsHash RowsHash { get; set; }
-        public List<Card> Cards { get; set; }
+        private NumbersPool _numbersPool;
+        private RowsHash _rowsHash;
+        private CardBuilder _builder;
 
-        public List<Card> Build()
+        private int _doublesOccurs = 0;
+        public int DoublesOccurs { get => _doublesOccurs; }
+
+        public List<Card> Build(int count)
         {
-            var b = new CardBuilder();
             var l = new List<Card>();
+            var attemps = 1000;
+            var strings = new List<string>();
 
-            for(int i = 0; i < 6; i++)
+            _numbersPool.Reset();
+            _rowsHash.Clear();
+
+            for (int i = 0; i < count; i++)
             {
-                l.Add(b.Build(RowsHash, NumbersPool));
+                attemps = 1000;
+
+                while (attemps-- > 0)
+                {
+                    // генерация карты
+                    var card = _builder.Build(_numbersPool);
+
+                    // проверка, что в карте все ячейки заполнены
+                    if(card.HasNoValueCells())
+                    {
+                        _numbersPool.Reset();
+                        continue;
+                    }
+
+                    // сброс кэша строк
+                    strings.Clear();
+
+                    // вычисление строк
+                    for(var row = Card.MIN_ROW_ID; row <= Card.MAX_ROW_ID; row++)
+                    {
+                        strings.Add(card.RowToString(row));
+                    }
+
+                    // сверка строк с хэшем строк
+                    foreach(var s in strings)
+                    {
+                        if(_rowsHash.Contains(s))
+                        {
+                            _doublesOccurs++;
+                            continue;
+                        }
+                    }
+
+                    // регистрация строк в хэше
+                    foreach (var s in strings)
+                    {
+                        if(!_rowsHash.Add(s))
+                        {
+                            throw new System.Exception("Пропущен дуль!");
+                        }
+                    }
+
+                    l.Add(card);
+                    break;
+                }
+
+                if(attemps <= 0)
+                {
+                    throw new System.Exception("Похоже, комбинации кончились, приятель!");
+                }
             }
 
             return l;
+        }
+
+        public CardBatchBuilder()
+        {
+            _numbersPool = new NumbersPool();
+            _rowsHash = new RowsHash();
+            _builder = new CardBuilder();
         }
     }
 }
