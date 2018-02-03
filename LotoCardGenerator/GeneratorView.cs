@@ -14,13 +14,6 @@ namespace LotoCardGenerator
     {
         private Utils.TextBoxStreamWriter _writer;
 
-        Models.NumbersPool NumbersPool;
-        Models.NumberSet NumberSet;
-        Models.Card Card;
-        Renders.ICardRender Render;
-
-        int currentValue;
-
         public GeneratorView()
         {
             InitializeComponent();
@@ -28,94 +21,60 @@ namespace LotoCardGenerator
             _writer = new Utils.TextBoxStreamWriter(txtConsole);
             Console.SetOut(_writer);
 
-            NumberSet = new Models.NumberSet(10, 19);
-            NumbersPool = new Models.NumbersPool();
-        }
-
-        private void btnNextNumber_Click(object sender, EventArgs e)
-        {
-            currentValue = NumberSet.GetNextNumber();
-            lblLastNumber.Text = currentValue.ToString();
-
-            Console.WriteLine(currentValue);
-        }
-
-        private void btnMark_Click(object sender, EventArgs e)
-        {
-            NumberSet.MarkValue(currentValue, true);
-
-            Console.WriteLine("\r\n------------\r\n");
-        }
-
-        private void btnRenderCard_Click(object sender, EventArgs e)
-        {
-            var cb = new Models.CardBuilder();
-            var sb = new StringBuilder();
-
-            Card = cb.Build(NumbersPool);
-
-            Render = new Renders.TextCardRender()
-            {
-                builder = sb
-            };
-
-            Render.Render(Card);
-
-            Console.WriteLine(sb.ToString());
-        }
-
-        private void btnResetSet_Click(object sender, EventArgs e)
-        {
-            NumberSet.Reset();
-            Console.WriteLine("\r\n--- (NumberSet перезагружен) ---\r\n");
-        }
-
-        private void btnResetPool_Click(object sender, EventArgs e)
-        {
-            NumbersPool.Reset();
-            Console.WriteLine("\r\n--- (NumbersPool перезагружен) ---\r\n");
+            Console.WriteLine($"Задайте \"{lblBatchSize.Text}\", чтобы указать количество карт в партии.");
+            Console.WriteLine($"Нажмите \"{btnMakeBatch.Text}\", чтобы создать партию карт.");
         }
 
         private void btnMakeBatch_Click(object sender, EventArgs e)
         {
-            var b = new Models.CardBatchBuilder();
-
             var size = (int)nudBatchSize.Value;
 
+            savePdfDialog.FileName = $"batch_{DateTime.Now:yyyyMMddHHmmss}_{size}x{lblPageCount.Text}.pdf";
 
-            List<Models.Card> cards = null;
-
-            try
+            if (savePdfDialog.ShowDialog() != DialogResult.OK)
             {
-                cards = b.Build(size);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Что-то пошло не так.");
+                Console.WriteLine("Операция отменена");
                 return;
             }
 
-            lblDoublesOccurs.Text = b.DoublesOccurs.ToString();
-
-            var sb = new StringBuilder();
-            Render = new Renders.TextCardRender()
+            try
             {
-                builder = sb
-            };
+                var b = new Models.CardBatchBuilder();
 
-            sb.AppendLine("====== (( Новая партия )) ======");
+                var doc = new PdfSharp.Pdf.PdfDocument();
+                var cardRender = new Renders.PdfCardRender();
 
-            for (var i = 0; i < cards.Count; i++)
-            {
-                var card = cards[i];
-                sb.AppendLine($"--- ( Карта #{i + 1} ) ---");
+                var batchRender = new Renders.PdfBatchCardRender
+                {
+                    CardRender = cardRender,
+                    Document = doc
+                };
 
-                Render.Render(card);
+                var cards = b.Build(size);
+
+                Console.WriteLine($"Сгенерировано {cards.Count()} карт.");
+                Console.WriteLine($"Сбросов из-за дублей: {b.DoublesOccurs}");
+
+                Console.WriteLine($"Начата отрисовка карт...");
+                batchRender.Render(cards);
+
+                Console.WriteLine($"Начато сохранение карт в файл...");
+                doc.Save(savePdfDialog.FileName);
+
+                Console.WriteLine($"Готово. Партия сохранена в файл \"{savePdfDialog.FileName}\". Страниц: {doc.PageCount}");
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Что-то пошло не так: {ex.Message}");
+                return;
+            }
+        }
 
-            sb.AppendLine("====== (( Конец партии )) ======");
+        private void nudBatchSize_ValueChanged(object sender, EventArgs e)
+        {
+            var size = (int)nudBatchSize.Value;
 
-            Console.Write(sb.ToString());
+            lblPageCount.Text = Math.Ceiling(size / (double)Renders.PdfBatchCardRender.CARDS_PER_PAGE).ToString();
         }
     }
 }
